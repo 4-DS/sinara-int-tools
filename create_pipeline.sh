@@ -29,13 +29,14 @@ fi
 
 read -p "Enter folder to clone pipeline steps to: " pipeline_folder
 if [[ -z "$pipeline_folder" ]]; then
-  pipeline_folder=$(pwd)
+  pipeline_folder="$(pwd)"
 fi
 
 GITHUB_ORG="${organization:-}"
 GITHUB_TOKEN="${token:-}"
 PIPELINE_NAME="${pipeline_name:-pipeline}"
 STEP_COUNT="${step_count:-1}"
+GIT_CRED_STORE_TIMEOUT=3600
 
 steps=()
 set +e
@@ -68,30 +69,36 @@ read -p "Please, enter your Git user name (default=jovyan): " git_username
 read -p "Please, enter your Git user email (default=jovyan@test.ru): " git_useremail
 
 GIT_USERNAME="${git_username:-jovyan}"
-GIT_USEREMAIL="${git_useremail:-jovyan@test.ru}"
+GIT_USEREMAIL="${git_useremail:-jovyan@example.com}"
 
-git config --global user.email "$GIT_USEREMAIL"
-git config --global user.name "$GIT_USERNAME"
-
-read -p "Your pipeline steps will be cloned soon. Would you like to store Git credentials for making it faster? y/n (default=n): " save_git_creds
-
-if [[ ${save_git_creds} == "y" ]]; then
-  git config --global credential.helper store  
-fi
+read -p "Your pipeline steps will be cloned soon. Would you like to store Git credentials in memory for $GIT_CRED_STORE_TIMEOUT seconds? WARINING: It may overwrite your stored github credentials. y/n (default=n): " save_git_creds
 
 set -e
-cd $pipeline_folder
 for step in ${steps[@]}; do
+  cd $pipeline_folder
   git clone --recurse-submodules https://github.com/4-DS/step_template.git $PIPELINE_NAME-$step
   cd $PIPELINE_NAME-$step
-  sed -i "s/\"step_template\"/\"${step}\"/g" ./params/step_params.json
-  sed -i "s/\"pipeline\"/\"${PIPELINE_NAME}\"/g" ./params/pipeline_params.json
+  
+  git config user.email "$GIT_USEREMAIL"
+  git config user.name "$GIT_USERNAME"
 
   git remote set-url origin https://github.com/$GITHUB_ORG/$PIPELINE_NAME-$step.git
+
+  sed -i "s/\"step_template\"/\"${step}\"/g" ./params/step_params.json
+  sed -i "s/\"pipeline\"/\"${PIPELINE_NAME}\"/g" ./params/pipeline_params.json
+  
+  git add -A
+  git commit -m "Set step and pipeline parameters"
+  
   git reset $(git commit-tree HEAD^{tree} -m "a new Sinara step")
+  
+  if [[ ${save_git_creds} == "y" ]]; then
+      git config credential.helper 'cache --timeout='$GIT_CRED_STORE_TIMEOUT''
+      (echo url=https://github.com; echo username=$GITHUB_ORG; echo password=$GITHUB_TOKEN; echo ) | git credential approve  
+  fi  
+  
   git push
 done
-cd -
 
 echo "Now you can go through the steps' folders in $pipeline_folder and declare interfaces as you need"
 

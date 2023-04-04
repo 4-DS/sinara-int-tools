@@ -53,7 +53,9 @@ git clone --recursive https://github.com/4-DS/pipeline-step3.git
 git clone --recursive https://github.com/4-DS/pipeline-step4.git
 ```
 
-2. Copy ```visualize.ipynb``` from sinara-ext-tools repository in the folder where the steps are situaded and Run the notebook cells.
+2. Open ```visualize.ipynb``` from sinara-int-tools repository
+3. Change glob path in visualize() to the folder where steps are cloned
+4. Run the notebook cells
 
 # Model serving intro
 
