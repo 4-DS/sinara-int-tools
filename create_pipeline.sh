@@ -41,28 +41,35 @@ GIT_CRED_STORE_TIMEOUT=3600
 steps=()
 set +e
 i=1
+
 while (( $i<=$STEP_COUNT ));
 do
+    
+    if [[ -z "${step_name_template:-}" ]]; then
+        while : ; do
+            read -p "Please, enter $i step name of your pipeline [default=step$i] : " step_name
+            if [[ " ${steps[*]} " =~ " ${step_name} " ]] && [[ ! -z "${step_name}" ]]; then
+               echo -e "Step $step_name aleady exists, choose different name"
+            else
+               break
+            fi
+        done
+        STEP_NAME="${step_name:-step$i}"
+    else
+        STEP_NAME="${step_name_template}${i}"
+    fi
 
-if [[ -z "${step_name:-}" ]]; then
-  read -p "Please, enter $i step name of your pipeline [default=step$i] : " step_name
-fi
+    curl \
+      -X POST \
+      -H "Accept: application/vnd.github+json" \
+      -H "Authorization: Bearer $GITHUB_TOKEN"\
+      -H "X-GitHub-Api-Version: 2022-11-28" \
+      https://api.github.com/orgs/$GITHUB_ORG/repos \
+      -d '{"name":"'"$PIPELINE_NAME-$STEP_NAME"'","description":"This is your '"$i"' step in pipeline '"${PIPELINE_NAME}"'","homepage":"https://github.com","private":false,"has_issues":true,"has_projects":true,"has_wiki":true}'
 
-STEP_NAME="${step_name:-step$i}"
-echo $STEP_NAME
-echo "${PIPELINE_NAME}-${STEP_NAME}"
+    steps+=( $STEP_NAME )
 
-curl \
-  -X POST \
-  -H "Accept: application/vnd.github+json" \
-  -H "Authorization: Bearer $GITHUB_TOKEN"\
-  -H "X-GitHub-Api-Version: 2022-11-28" \
-  https://api.github.com/orgs/$GITHUB_ORG/repos \
-  -d '{"name":"'"$PIPELINE_NAME-$STEP_NAME"'","description":"This is your '"$i"' step in pipeline '"${PIPELINE_NAME}"'","homepage":"https://github.com","private":false,"has_issues":true,"has_projects":true,"has_wiki":true}'
-
-steps+=( $STEP_NAME )
-
-(( i=$i+1 ))
+    i=$((i+1))
 done
 
 read -p "Please, enter your Git user name (default=jovyan): " git_username
