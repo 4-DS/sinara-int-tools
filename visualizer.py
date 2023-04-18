@@ -93,23 +93,16 @@ def run_steps(step_list):
     current_env.update({"VISUALIZER_SESSION_RUN_ID": os.getenv("VISUALIZER_SESSION_RUN_ID")})
     
     for step_dir in step_list:
-        with Popen(f"python step.dev.py", \
+        child_process = run(f"python step.dev.py", \
                    shell=True, \
                    stdout=PIPE, \
                    stderr=STDOUT, \
                    cwd=step_dir, \
-                   env=current_env) as child_process, \
-             open(f'{step_dir}.log', 'w') as logfile:
+                   env=current_env)
 
-            for line in child_process.stdout:
-                decoded_line = line.decode("utf-8")
-                sys.stdout.write(decoded_line)
-                logfile.write(decoded_line)
-            child_process.communicate()
-            #print(child_process.returncode )
-            
-            #if child_process.returncode != 0:
-            #    raise Exception(f"SINARA Python module '{self.input_nb_name}' is failed!")
+        if child_process.returncode not in [0, 254]:
+            print(child_process.stdout)
+            raise Exception(f"SINARA Python module '{step_dir}/step.dev.py' failed!")
 
 
 def show(graph_name):
